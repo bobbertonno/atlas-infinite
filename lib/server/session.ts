@@ -54,6 +54,13 @@ export async function getCredentials() {
   return token ? unseal(token) : null
 }
 
+/** True when a session cookie exists but can no longer be decrypted (e.g. the ephemeral key rotated on a server restart). */
+export async function hasExpiredSession() {
+  const store = await cookies()
+  const token = store.get(COOKIE)?.value
+  return Boolean(token) && unseal(token as string) === null
+}
+
 export async function setCredentials(data: AtlasCredentials) {
   const store = await cookies()
   store.set(COOKIE, seal(data), {

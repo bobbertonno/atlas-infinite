@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { clearCredentials, getCredentials, hasPersistentKey, mask, setCredentials } from '@/lib/server/session'
+import { clearCredentials, getCredentials, hasExpiredSession, hasPersistentKey, mask, setCredentials } from '@/lib/server/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +7,7 @@ export async function GET() {
   const c = await getCredentials()
   return NextResponse.json({
     stored: Boolean(c),
+    expired: !c && (await hasExpiredSession()),
     clientId: mask(c?.clientId),
     projectId: c?.projectId ?? '',
     orgId: c?.orgId ?? '',

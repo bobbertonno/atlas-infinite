@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import type { DemoConfig } from '@/lib/types'
 import { DemoContext, type DemoResults } from './demo-context'
 import { StageView } from './stage-view'
+import { LiveCredentialsBanner } from './live-credentials-banner'
 
 export function DemoRunner({ cfg: initial }: { cfg: DemoConfig }) {
   const [cfg, setCfg] = useState(initial)
@@ -134,6 +135,7 @@ export function DemoRunner({ cfg: initial }: { cfg: DemoConfig }) {
           </nav>
 
           <main className="flex min-w-0 flex-col gap-6">
+            <LiveCredentialsBanner cfg={cfg} updateCfg={updateCfg} />
             <header className="flex flex-col gap-2">
               <p className="font-mono text-xs uppercase tracking-widest text-primary">
                 Stage {index + 1} of {stages.length}
