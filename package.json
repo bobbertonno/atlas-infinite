@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "launch": "bash scripts/launch-mac.sh",
+    "launch:dev": "bash scripts/launch-mac.sh --dev",
+    "launch:vercel": "bash scripts/launch-mac.sh --vercel"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
