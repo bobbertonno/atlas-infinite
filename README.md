@@ -1,142 +1,210 @@
 # Atlas Infinite Experience Lab
 
-An interactive, guided demo that compares **MongoDB Atlas Core Gen1** (three-node replica set) with **MongoDB Atlas Infinite** (disaggregated compute/storage). It runs in **Simulation Mode** (no credentials needed) or **Live Atlas Mode** (real clusters through the Atlas Admin API).
+An interactive, guided demo that compares **MongoDB Atlas Core Gen1** (a three-node replica set) with **MongoDB Atlas Infinite** (two base compute nodes, Primary and Standby, on shared disaggregated storage). An eight-step wizard configures the clusters, a deterministic synthetic dataset, ingestion, a workload and a twelve-stage storyline. It runs fully in **Simulation Mode** (no credentials) or in **Live Atlas Mode** against real clusters through server-side API routes. Built with Next.js 16, TypeScript, the MongoDB Node.js driver and the LeafyGreen palette.
 
-Built with Next.js 16, TypeScript, the MongoDB Node.js driver and the LeafyGreen palette.
+![Home page](docs/screenshots/01-home.png)
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_U35R9ndcWI85gYH2Vl7angdPCOPo)
+## Business problem
 
----
+Architects and decision makers need to understand how a disaggregated compute/storage deployment differs from a traditional replica set (number of data copies, read scaling, storage growth, backup and restore) before choosing one. Slides make this abstract, and building a fair, repeatable comparison by hand takes time.
 
-## Run it on your MacBook
+## Solution
 
-### Quick start (one command)
+The lab generates the **same seeded dataset** (identical `_id` values and contents) and runs the **same logical workload** against both deployments. It visualizes each architecture and walks a presenter through provisioning, loading, query compatibility, read/write paths, workload latency, zero-copy read scaling, independent compute and storage scaling, encryption, backup/PITR and recommendations, with speaker notes for Executive, Developer or Architect audiences.
+
+- **Simulation Mode:** an illustrative, deterministic model (`lib/simulation.ts`). Every metric is labeled as simulated.
+- **Live Atlas Mode:** server routes call the Atlas Admin API v2 and the MongoDB Node.js driver. Latencies are client-measured and not hardware-normalized.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  U[Presenter browser] --> W[Next.js wizard and guided demo]
+  W -->|Simulation Mode| S[Deterministic simulation model]
+  W -->|Live Atlas Mode| R[Next.js API routes]
+  R --> C[Encrypted session cookie]
+  R --> A[Atlas Admin API v2]
+  R --> D[MongoDB Node.js driver]
+  A --> K[(Atlas Core Gen1 replica set)]
+  A --> I[(Atlas Infinite cluster)]
+  D --> K
+  D --> I
+  D --> F[Bulk inserts, indexes, CRUD workload, aggregations]
+```
+
+1. Demo configurations are stored in the browser's localStorage (`lib/store.ts`) and edited in the wizard.
+2. In Live Atlas Mode, credentials are posted to `/api/atlas/credentials` and kept only in an AES-256-GCM encrypted HttpOnly cookie (`lib/server/session.ts`).
+3. `/api/atlas/check` and `/api/atlas/clusters` call the Atlas Admin API v2 (`lib/server/atlas.ts`) to validate the project and provision or read clusters. Only the Core Gen1 replica set is provisioned by the lab; Atlas Infinite is attached as an existing cluster.
+4. `/api/live/data` generates seeded documents in batches, bulk-inserts them into both clusters, then verifies counts, indexes and fingerprints.
+5. `/api/live/workload` runs the identical read/write/aggregate mix against both clusters and returns p50/p95/p99 latency.
+
+## MongoDB capabilities
+
+| Capability | Why used | File |
+| --- | --- | --- |
+| Atlas | Atlas Admin API v2: connection test, access list, database users, limits, cluster provisioning and status | `lib/server/atlas.ts` |
+| CRUD | `insertMany` for ingestion; `find`, `insertOne`, `updateOne`, `deleteOne` in the workload | `app/api/live/workload/route.ts` |
+| Aggregation | `$collStats` for verification, `$group`/`$sort`/`$limit` for fingerprints and analytics queries | `app/api/live/data/route.ts` |
+| Atlas Infinite | The storyline contrasts Primary/Standby compute on shared storage with a three-node replica set | `components/lab/architecture.tsx` |
+
+## Prerequisites
+
+| Tool | Version | Check |
+| --- | --- | --- |
+| Node.js | 20 or newer | `node --version` |
+| pnpm | 9 or newer | `pnpm --version` |
+| Git | any | `git --version` |
+
+On macOS, install them with Xcode Command Line Tools (`xcode-select --install`), [Homebrew](https://brew.sh) (`brew install node`) and Corepack (`corepack enable`).
+
+## Run locally
+
+### Clone the repository
+
+Download the code and enter the project folder.
 
 ```bash
 git clone https://github.com/bobbertonno/atlas-infinite.git
 cd atlas-infinite
+```
+
+### Launch with one command (macOS)
+
+The launcher checks Node.js and pnpm, creates `.env.local` with a generated `ATLAS_LAB_SECRET`, installs dependencies, builds, starts the server and opens http://localhost:3000. Use `--dev` for hot reload or `PORT=4000` for another port. Press `Ctrl+C` to stop.
+
+```bash
 ./scripts/launch-mac.sh
 ```
 
-The script checks your tools, sets up the environment, builds the app, starts it, and opens **http://localhost:3000** in your browser. Press `Ctrl+C` to stop it.
+### Create the environment file manually
 
-### Launcher options
-
-| Command | What it does |
-| --- | --- |
-| `./scripts/launch-mac.sh` | Builds an optimized production bundle and runs it locally |
-| `./scripts/launch-mac.sh --dev` | Runs the development server with hot reload (for editing code) |
-| `./scripts/launch-mac.sh --vercel` | Builds locally, then deploys to Vercel production |
-| `PORT=4000 ./scripts/launch-mac.sh` | Uses another port (default `3000`) |
-
-You can also use `pnpm launch`, `pnpm launch:dev`, and `pnpm launch:vercel`.
-
----
-
-## Step-by-step guide
-
-Use these steps if you prefer to set things up yourself, or if the script stops with an error.
-
-### 1. Install the prerequisites
-
-1. **Xcode Command Line Tools** (they include `git`):
-   ```bash
-   xcode-select --install
-   ```
-2. **Homebrew** (macOS package manager) from [brew.sh](https://brew.sh):
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-3. **Node.js 20 or newer**:
-   ```bash
-   brew install node
-   node -v   # should print v20.x or higher
-   ```
-4. **pnpm** (the project's package manager):
-   ```bash
-   corepack enable    # or: npm install -g pnpm
-   pnpm -v
-   ```
-
-### 2. Get the code
-
-```bash
-git clone https://github.com/bobbertonno/atlas-infinite.git
-cd atlas-infinite
-```
-
-### 3. Create your local environment file
-
-The app encrypts Atlas credentials (AES-256-GCM) in a session cookie with `ATLAS_LAB_SECRET`. Generate one:
+Generate the secret that encrypts credentials in the session cookie. `.env.local` is git-ignored. See `.env.example`.
 
 ```bash
 echo "ATLAS_LAB_SECRET=$(openssl rand -base64 32)" > .env.local
 chmod 600 .env.local
 ```
 
-`.env.local` is git-ignored, so it is never committed. Without this variable the app still runs, but saved Atlas credentials are lost every time the server restarts.
+### Install, build and start manually
 
-### 4. Install dependencies
+Install dependencies, build the production bundle and start it on port 3000.
 
 ```bash
 pnpm install
+pnpm build
+pnpm start
 ```
 
-### 5. Build and start
+### Run the development server
+
+Use hot reload while editing code.
 
 ```bash
-pnpm build
-pnpm start          # production server on http://localhost:3000
+pnpm dev
 ```
 
-For development with hot reload, run `pnpm dev` instead.
+### Deploy to Vercel (optional)
 
-### 6. Use the app
-
-1. Open http://localhost:3000.
-2. Click **New demo** to open the Configuration Wizard.
-3. Choose **Simulation Mode** to try everything with no credentials, or **Live Atlas Mode** to work with real clusters (see the next section).
-4. Go through the wizard steps (clusters, dataset, loading, workload, guided stages), review, and launch the guided demo.
-
-Your demo configurations are saved in the browser's local storage. You can export and import them from the home page library.
-
----
-
-## Live Atlas Mode setup
-
-1. In [MongoDB Atlas](https://cloud.mongodb.com), open your project, then go to **Project Settings, Access Manager, Applications, Service Accounts** (or API Keys) and create credentials with the **Project Owner** role. Project Owner is needed to create and scale clusters.
-2. Copy the **Client ID**, **Client Secret** and **Project ID**.
-3. **Network access:** in Atlas, open **Network Access** and add your Mac's public IP to the IP Access List. To find your IP, run `curl -s https://checkip.amazonaws.com`. Add the same IP to the Atlas Admin API access list if your organization requires one.
-4. In the wizard's **Atlas Connection** step, enter the credentials and run **Test Atlas API Connection**.
-
-Credentials are sent only to your local server. They never reach client-side JavaScript, logs, or exported profiles.
-
-> Live mode creates real clusters that cost money. Delete the demo clusters in Atlas when you finish.
-
----
-
-## Deploy to Vercel from your Mac
+Builds locally, installs the Vercel CLI if needed, links the project, copies `ATLAS_LAB_SECRET` to the production environment and runs `vercel deploy --prod`. For Live mode on Vercel, the cluster must accept Vercel's egress IPs (broader access list, Vercel Static IPs, or Secure Compute with private networking).
 
 ```bash
 ./scripts/launch-mac.sh --vercel
 ```
 
-The script installs the Vercel CLI if needed, logs you in, links the project the first time, copies `ATLAS_LAB_SECRET` to the Vercel production environment, and runs `vercel deploy --prod`.
+## Atlas setup
 
-When you run Live Atlas Mode on Vercel, Atlas has to accept connections from Vercel's dynamic IPs. Options include a broader Atlas IP access list, Vercel Static IPs, or Secure Compute together with Atlas private networking.
+Only needed for Live Atlas Mode. Live mode creates real clusters that cost money; delete them when you finish.
 
-Pushes to `main` also deploy automatically through the linked v0/Vercel project.
+### Create an Atlas service account
 
----
+In Atlas, open **Project Settings, Access Manager, Applications, Service Accounts** and create credentials with the **Project Owner** role (needed to create and scale clusters). Copy the Client ID, Client Secret and Project ID. They are entered in the wizard, not in env files.
+
+```bash
+echo "Client ID, Client Secret and Project ID are entered in the wizard, not in env files"
+```
+
+### Allow your IP in Atlas Network Access
+
+Find your public IP and add it to the project IP Access List, and to the Admin API access list if your organization requires one.
+
+```bash
+curl -s https://checkip.amazonaws.com
+```
+
+### Prepare an Atlas Infinite cluster
+
+The lab provisions only the Core Gen1 replica set. Create an Atlas Infinite cluster in the same project where your organization supports it, then set the Atlas Infinite source to an existing cluster in wizard step 3.
+
+```bash
+echo "Set the Atlas Infinite source to an existing cluster in wizard step 3"
+```
+
+### Connect from the Atlas wizard step
+
+Choose **Live Atlas Mode**, enter the credentials in the **Atlas Connection** step and run **Test Atlas API Connection**.
+
+```bash
+open http://localhost:3000
+```
+
+## Configuration
+
+| Variable | Required | Secret | Modes | Description |
+| --- | --- | --- | --- | --- |
+| `ATLAS_LAB_SECRET` | No | Yes | atlas-connected | Key material for AES-256-GCM encryption of the credential session cookie. If unset, an ephemeral key is used and credentials must be re-entered after each server restart. |
+
+Atlas credentials and the database user are entered in the wizard and never stored in env files.
+
+## Demo walkthrough
+
+![Wizard mode step](docs/screenshots/02-wizard-mode.png)
+
+1. Open http://localhost:3000 and click **New demo configuration**.
+2. **Mode:** pick Simulation Mode (no credentials) or Live Atlas Mode. A persistent badge shows which mode produced the data.
+3. **Connection** (Live only): enter credentials and run the connection, permission, region and quota checks.
+4. **Clusters:** review `demo-core-gen1` (three nodes, own volumes) and `demo-infinite` (Primary and Standby on shared storage, optional read-only nodes).
+
+   ![Cluster configuration](docs/screenshots/03-wizard-clusters.png)
+
+5. **Dataset:** choose a template (Financial Transactions, Customer Profiles, Audit Events, IoT Time Series, Document Metadata or Custom JSON Schema), the seed, document count and indexes, and preview sample documents.
+
+   ![Dataset factory](docs/screenshots/04-wizard-dataset.png)
+
+6. **Loading, Workload, Guided demo:** set ingestion options, the workload template and which of the twelve stages to show.
+7. **Review:** click **Launch demo**.
+8. Walk through the stages with **Next** or the arrow keys; toggle **Notes** for speaker notes.
+
+   ![Guided demo architecture stage](docs/screenshots/05-demo-architecture.png)
+
+9. On **Workload Performance**, click **Run identical workload** to compare p50, p95 and p99 latency and throughput.
+
+   ![Workload performance](docs/screenshots/06-demo-workload.png)
+
+10. Finish with **Results and Recommendations**. Configurations can be exported and imported from the home page library.
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
 | `permission denied: ./scripts/launch-mac.sh` | `chmod +x scripts/launch-mac.sh` |
-| `Port 3000 is already in use` | `PORT=4000 ./scripts/launch-mac.sh`, or find the other process with `lsof -i :3000` |
+| `Port 3000 is already in use` | `PORT=4000 ./scripts/launch-mac.sh`, or find the process with `lsof -i :3000` |
 | `Node.js ... is too old` | `brew upgrade node` |
 | pnpm version error from Corepack | `npm install -g pnpm` and run the script again |
-| Credentials ask again after a restart | Make sure `.env.local` contains `ATLAS_LAB_SECRET` |
-| Atlas connection times out | Add your current public IP to the Atlas Network Access list |
+| Credentials requested again after a restart | Make sure `.env.local` contains `ATLAS_LAB_SECRET` |
+| Atlas connection times out | Add your current public IP to Atlas Network Access |
 | Build fails after `git pull` | `rm -rf node_modules .next && pnpm install && pnpm build` |
+
+## Limitations
+
+- The lab provisions only Atlas Core Gen1 replica sets. Atlas Infinite clusters must already exist and are attached by name.
+- Simulation Mode metrics come from an illustrative model and are not measurements.
+- Live latencies are measured from the app server and are not hardware-normalized; compute generation, instance resources, cache state and network location differ between clusters.
+- Demo configurations live in browser localStorage, so they are per browser and per device.
+- On Vercel, serverless function time limits bound how long a single ingestion or workload request can run.
+
+## Security notes
+
+- Atlas credentials are sent only to the app's own server routes, encrypted with AES-256-GCM into an HttpOnly cookie (8-hour lifetime), and never returned to client JavaScript, logs or exported profiles.
+- Set `ATLAS_LAB_SECRET` to a random value and keep `.env.local` out of version control (it is git-ignored).
+- Use a dedicated Atlas project and a service account scoped to that project, and delete demo clusters and credentials after the session.
+- Restrict Atlas Network Access to the IPs that actually run the app.

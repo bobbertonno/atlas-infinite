@@ -1,0 +1,266 @@
+id: atlas-infinite-experience-lab
+slug: atlas-infinite-experience-lab
+title: Atlas Infinite Experience Lab
+tagline: A guided, side-by-side comparison of Atlas Core Gen1 and Atlas Infinite, simulated or live.
+summary: >-
+  An interactive Next.js lab that compares a MongoDB Atlas Core Gen1 three-node
+  replica set with Atlas Infinite (two base compute nodes on shared
+  disaggregated storage). An eight-step wizard configures clusters, a
+  deterministic synthetic dataset, ingestion, a workload and a twelve-stage
+  guided storyline. It runs fully simulated in the browser or against real
+  Atlas clusters through server-side API routes.
+businessProblem: >-
+  Architects and decision makers need to understand how a disaggregated
+  compute/storage deployment differs from a traditional replica set (data
+  copies, read scaling, storage growth, backup) before choosing one. Explaining
+  this with slides is abstract, and setting up a fair, repeatable comparison by
+  hand takes time.
+solution: >-
+  The lab generates the same seeded dataset and the same logical workload for
+  both deployments, visualizes each architecture, and walks a presenter
+  through provisioning, loading, query compatibility, read/write paths,
+  workload latency, scaling, encryption, backup and recommendations. In Live
+  Atlas Mode it calls the Atlas Admin API v2 and the MongoDB Node.js driver
+  from server routes; in Simulation Mode an illustrative model produces
+  clearly labeled simulated metrics.
+industry: Cross-industry
+category: Architecture & Infrastructure
+useCases:
+  - Architecture comparison presentations
+  - Pre-sales technical demos
+  - Workload profiling with identical datasets
+  - Atlas Infinite enablement
+tags:
+  - atlas-infinite
+  - replica-set
+  - architecture
+  - nextjs
+  - guided-demo
+  - simulation
+capabilities:
+  - capability: atlas
+    whyUsed: >-
+      Server routes call the Atlas Admin API v2 with a service account to test
+      the connection, check access lists, database users, limits and existing
+      clusters, provision the Core Gen1 replica set and poll cluster status.
+    implementationLocation: lib/server/atlas.ts
+    businessValue: The demo can show real cluster lifecycle instead of only slides.
+    verified: false
+  - capability: crud
+    whyUsed: >-
+      The ingestion route bulk-loads deterministic documents with insertMany,
+      and the workload route runs find, insertOne, updateOne and deleteOne
+      against both clusters.
+    implementationLocation: app/api/live/workload/route.ts
+    businessValue: Identical logical operations run against both deployments.
+    verified: false
+  - capability: aggregation
+    whyUsed: >-
+      $collStats is used to verify collection statistics after loading, and
+      $group/$sort/$limit pipelines are used for dataset fingerprints and the
+      analytics part of the workload.
+    implementationLocation: app/api/live/data/route.ts
+    businessValue: Proves both clusters hold the same data and answer the same queries.
+    verified: false
+  - capability: atlas-infinite
+    whyUsed: >-
+      The whole storyline contrasts Atlas Infinite (Primary and Standby compute
+      on shared storage, optional read-only nodes) with Core Gen1. In Live
+      mode an existing Infinite cluster is attached by name; the lab does not
+      provision Infinite itself.
+    implementationLocation: components/lab/architecture.tsx
+    businessValue: Makes the disaggregated architecture tangible for each audience level.
+    verified: false
+architecture:
+  overview: >-
+    A Next.js 16 App Router application. Demo configurations are stored in the
+    browser's localStorage (lib/store.ts) and edited through an eight-step
+    wizard. The guided demo (components/demo) renders twelve stages. In
+    Simulation Mode all data and metrics come from a deterministic model in
+    lib/simulation.ts and lib/dataset.ts. In Live Atlas Mode the browser calls
+    Next.js API routes under app/api; Atlas credentials are encrypted with
+    AES-256-GCM into an HttpOnly session cookie (lib/server/session.ts), and
+    the routes call the Atlas Admin API v2 (lib/server/atlas.ts) and the
+    MongoDB Node.js driver (lib/server/mongo.ts). Only the Core Gen1 replica
+    set is provisioned by the lab; Atlas Infinite clusters are attached as
+    existing clusters.
+  dataFlow:
+    - The presenter configures a demo in the wizard; the configuration is saved in browser localStorage.
+    - In Live Atlas Mode, credentials are posted to /api/atlas/credentials and stored only in an encrypted HttpOnly cookie.
+    - /api/atlas/check and /api/atlas/clusters call the Atlas Admin API v2 to validate the project and provision or read clusters.
+    - /api/live/data generates seeded documents in batches and bulk-inserts the same _id values into both clusters, then verifies counts, indexes and fingerprints.
+    - /api/live/workload runs the identical read/write/aggregate mix against both clusters and returns client-measured latency percentiles.
+    - In Simulation Mode, the same stages are driven by lib/simulation.ts and every metric is labeled as simulated.
+  diagrams:
+    - id: main-flow
+      title: Application, Atlas and feature flow
+      description: How the wizard and guided demo reach Atlas in each mode.
+      mermaid: |
+        flowchart LR
+          U[Presenter browser] --> W[Next.js wizard and guided demo]
+          W -->|Simulation Mode| S[Deterministic simulation model]
+          W -->|Live Atlas Mode| R[Next.js API routes]
+          R --> C[Encrypted session cookie]
+          R --> A[Atlas Admin API v2]
+          R --> D[MongoDB Node.js driver]
+          A --> K[(Atlas Core Gen1 replica set)]
+          A --> I[(Atlas Infinite cluster)]
+          D --> K
+          D --> I
+          D --> F[Bulk inserts, indexes, CRUD workload, aggregations]
+      provenance: repository
+      illustrative: false
+screenshots:
+  - id: home
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/01-home.png
+    caption: Home page with side-by-side architecture previews and the configuration library.
+    alt: Dark home page showing Atlas Core Gen1 with three nodes and local volumes next to Atlas Infinite with Primary and Standby on shared storage.
+    order: 0
+    provenance: repository
+  - id: wizard-mode
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/02-wizard-mode.png
+    caption: Wizard step 1, choosing Simulation Mode or Live Atlas Mode.
+    alt: Wizard with an eight-step sidebar and two mode cards labeled Simulated and Live Atlas.
+    order: 1
+    provenance: repository
+  - id: wizard-clusters
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/03-wizard-clusters.png
+    caption: Wizard step 3, configuring both clusters with live architecture previews.
+    alt: Two configuration panels for demo-core-gen1 and demo-infinite with region, tier, backup and read-only node controls.
+    order: 2
+    provenance: repository
+  - id: wizard-dataset
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/04-wizard-dataset.png
+    caption: Wizard step 4, the synthetic dataset factory with templates, seed and indexes.
+    alt: Dataset templates grid and fields for document count, size, random seed, workers and index chips.
+    order: 3
+    provenance: repository
+  - id: demo-architecture
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/05-demo-architecture.png
+    caption: Guided demo stage 1, Atlas Core architecture with speaker notes.
+    alt: Guided demo with a twelve-stage sidebar, speaker notes and a three-node replica set diagram.
+    order: 4
+    provenance: repository
+  - id: demo-workload
+    url: https://raw.githubusercontent.com/bobbertonno/atlas-infinite/main/docs/screenshots/06-demo-workload.png
+    caption: Guided demo stage 7, identical workload with simulated p95 latency over time.
+    alt: Line chart of Core and Infinite p95 latency with p50, p95 and p99 tiles, marked Simulated.
+    order: 5
+    provenance: repository
+repository: https://github.com/bobbertonno/atlas-infinite
+defaultBranch: main
+readmePath: README.md
+prerequisites:
+  - name: Node.js
+    version: '>=20'
+    check: node --version
+  - name: pnpm
+    version: '>=9'
+    check: pnpm --version
+  - name: Git
+    version: any
+    check: git --version
+localSetup:
+  - title: Clone the repository
+    description: Download the code and enter the project folder.
+    command: |
+      git clone https://github.com/bobbertonno/atlas-infinite.git
+      cd atlas-infinite
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Launch with one command (macOS)
+    description: >-
+      The launcher checks Node.js and pnpm, creates .env.local with a generated
+      ATLAS_LAB_SECRET, installs dependencies, builds, starts the server and
+      opens http://localhost:3000.
+    command: ./scripts/launch-mac.sh
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Create the environment file manually
+    description: Generate the secret that encrypts Atlas credentials in the session cookie.
+    command: |
+      echo "ATLAS_LAB_SECRET=$(openssl rand -base64 32)" > .env.local
+      chmod 600 .env.local
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Install, build and start manually
+    description: Install dependencies, build the production bundle and start it on port 3000.
+    command: |
+      pnpm install
+      pnpm build
+      pnpm start
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Run the development server
+    description: Use hot reload while editing code.
+    command: pnpm dev
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Deploy to Vercel (optional)
+    description: >-
+      Builds locally, links the Vercel project, copies ATLAS_LAB_SECRET to the
+      production environment and runs vercel deploy --prod.
+    command: ./scripts/launch-mac.sh --vercel
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+atlasSetup:
+  - title: Create an Atlas service account
+    description: >-
+      In Atlas, open Project Settings, Access Manager, Applications, Service
+      Accounts and create credentials with the Project Owner role, which is
+      needed to create and scale clusters. Copy the Client ID, Client Secret
+      and Project ID.
+    command: 'echo "Client ID, Client Secret and Project ID are entered in the wizard, not in env files"'
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Allow your IP in Atlas Network Access
+    description: >-
+      Find your public IP and add it to the project IP Access List (and to the
+      Admin API access list if your organization requires one).
+    command: curl -s https://checkip.amazonaws.com
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Prepare an Atlas Infinite cluster
+    description: >-
+      The lab provisions only the Core Gen1 replica set. Create an Atlas
+      Infinite cluster in the same project where your organization supports
+      it, then select Use existing cluster for Atlas Infinite in wizard step 3.
+    command: 'echo "Set the Atlas Infinite source to an existing cluster in wizard step 3"'
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+  - title: Connect from the wizard
+    description: >-
+      Choose Live Atlas Mode, enter the credentials in the Atlas Connection
+      step and run Test Atlas API Connection.
+    command: open http://localhost:3000
+    language: bash
+    provenance: repository
+    sourcePath: README.md
+configuration:
+  - name: ATLAS_LAB_SECRET
+    description: >-
+      Key material for AES-256-GCM encryption of the Atlas credential session
+      cookie. If unset, an ephemeral per-process key is used and credentials
+      must be re-entered after every server restart.
+    required: false
+    secret: true
+    example: <output of openssl rand -base64 32>
+    modes: [atlas-connected]
+demoModes: [local-demo, atlas-connected, interactive-educational]
+themeMode: mongodb
+maintainer:
+  name: bobbertonno
+maturity: prototype
+difficulty: intermediate
+documentationStatus: partial
+verificationTimestamp: null
+releaseVersion: '0.1.0'
